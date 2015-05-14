@@ -1,0 +1,3 @@
+# set pandoc as word document difference tool 
+
+*.docx diff=pandoc
