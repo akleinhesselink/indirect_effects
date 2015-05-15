@@ -1,7 +1,8 @@
 ##### quick demonstration of how a single species resource equilibrium 
 ##### changes in a substitutable model 
+rm(list = ls())
 
-source('appendixB.R')
+source('resource_competition_functions.R')
 
 par(mfrow= c(1, 1) ) 
 
@@ -46,6 +47,9 @@ preEq = as.matrix(tail(NRout, 1))[,-1]
 points(preEq[3], preEq[4], pch = 19)
 text( preEq[3], preEq[4], labels='Eq2', pos = 3)
 plotConsumption(parms, B1 = B[[1]], B2 = B[[2]], R1star= preEq[[3]], R2star = preEq[[4]], species2Color=NULL)
+
+
+
 
 
 

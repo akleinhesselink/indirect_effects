@@ -211,6 +211,7 @@ getRho2 = function( parms, N1limitedbyR1 = TRUE){
   return(rho)
 }
 
+source('resource_competition_functions.R')
 
 ###### Demonstrates Two species two essential resource competition model of coexistence
 NR = c(N = c(.01, .01), R = c(20,20))   ### initial populations and resource levels
@@ -361,19 +362,6 @@ cbind( indFX2_calc, simIndSens2 )
 #### Generate figures for main text of manuscript: 
 #############################################################
 
-calcIFX1 = function( rho, dfxN1 = 1) { 
-  ##### Draw indirect effect strength as a function of rho
-  ifx1 = dfxN1*(rho^2/ ( 1 - rho^2))
-  return(ifx1)  
-}
-
-calcFX2 = function( rho, focalSensitivity){
-  #### Draw second type of indirect effects as function of rho and 
-  #### focal species sensitivity 
-  ifxtotal = - focalSensitivity*(rho^2/(1 - rho^2))
-  return(ifxtotal)
-}
-
 ######## Figure settings 
 par(mfrow= c(1,1), oma = c(1,1,1,1), mar = c(5,5.5,1,1), las = 1, cex.axis = 0.8)
 
@@ -427,6 +415,7 @@ curve( expr = calcFX2 ( rho = rhos[3], focalSensitivity= x), add = TRUE,
 legend(x = 0, y= -3, legend= as.character(rhos), lty = c(3,2,1), lwd = c(2, 2, 1), 
        cex = 0.9, bty='n', title= title3)
 mtext(xldirect2, side=1, line=4)
+
 ########################################################
 ####### End Section 1: essential resource model anaylsis 
 ########################################################
@@ -441,173 +430,7 @@ rm(list = ls()) #### remove previous parameters
 
 #### Substitutable resource model Functions 
 
-subMod = function(t, NR, parms) {  
-  #### Substitutable resource model  
-  with(as.list(c(NR, parms)), { 
-    
-    dN1dt = N1*(r[1]*(w[1,1]*R1 + w[1,2]*R2 - tau[1])/(k[1] + w[1,1]*R1 + w[1,2]*R2 - tau[1])  - D) ## sp. 1 growth
-    dN2dt = N2*(r[2]*(w[2,1]*R1 + w[2,2]*R2 - tau[2])/(k[2] + w[2,1]*R1 + w[2,2]*R2 - tau[2])  - D) ## sp. 2 growth
-    dR1dt = D*(S[1] - R1) - q[1,1]*N1 - q[2,1]*N2
-    dR2dt = D*(S[2] - R2) - q[1,2]*N1 - q[2,2]*N2  
-    
-    list(c(dN1dt, dN2dt, dR1dt, dR2dt))
-  }) 
-}
-
-
-submod_constant_N2 = function(t, NR, parms, hold = 2) {
-  
-  #### Continuous two species resource model with substitutable resources
-  #### This model finds equilibrium populatoin of focal species (N1) 
-  #### while holding population of competitor (N2) constant. 
-  
-  with(as.list(c(NR, parms)), { 
-    if (hold == 2){ 
-      dN1dt = N1*(r[1]*(w[1,1]*R1 + w[1,2]*R2 - tau[1])/(k[1] + w[1,1]*R1 + w[1,2]*R2 - tau[1])  - D) ## sp. 1 growth
-      dN2dt = 0 # set to zero to hold N2 constant N2*min((r[1]*R1/(R1 + k[2,1]) - m[2]), (r[2]*R2/(R2 + k[2,2]) - m[2])) 
-    }
-    else if (hold ==1){ 
-      dN1dt = 0 # N1*min((r[1]*R1/(R1 + k[1,1]) - m[1]), (r[1]*R2/(R2 + k[1,2]) - m[1])) ## sp. 1 growth
-      dN2dt = N2*(r[2]*(w[2,1]*R1 + w[2,2]*R2 - m[2])/(k[2] + w[2,1]*R1 + w[2,2]*R2 - m[2])  - D) ## sp. 1 growth
-    }
-    dR1dt = D*(S[1] - R1) - q[1,1]*N1 - q[2,1]*N2
-    dR2dt = D*(S[2] - R2) - q[1,2]*N1 - q[2,2]*N2 
-    list(c(dN1dt, dN2dt, dR1dt, dR2dt))
-  }) 
-}
-
-
-
-calcRhoSub = function(parms ) { 
-  rho = NA
-  with(parms, { 
-    rho = sqrt( ( (q[2,2] + q[2,1]*w[1,1]/w[1,2])*( q[1,2] + q[1,1]*w[2,1]/w[2,2]) )
-                /( (q[1,2] + q[1,1]*w[1,1]/w[1,2])*( q[2,2] + w[2,1]*q[2,1]/w[2,2] ) ) )
-    return(rho)
-  } )
-}
-
-
-calcIntercepts = function(parms){ 
-  #### Returns values for B in Tilman 1981 Appendix 
-  with(parms, { 
-    B1 = ((D/r[1])*(k[1] - tau[1]) + tau[1])/(w[1,2]*(1 - D/r[1]))
-    B2 = ((D/r[2])*(k[2] - tau[2]) + tau[2])/(w[2,2]*(1 - D/r[2]))
-    return(list(B1, B2))
-  })  
-}
-
-plotZingis = function(parms, B1, B2, ymax = 1000 ){
-  #### Plot Zero-Net Growth Isoclines for species one and two
-  with(parms, { 
-    xend = max((B1/(w[1,1]/w[1,2])),(B2/(w[2,1]/w[2,2])))
-    yl = max(B1, B2, ymax)
-    curve(B1 - (w[1,1]/w[1,2])*x, 0, xend, col = 1, ylim = c(0, yl), xlab = 'Resource 1', 
-          ylab = 'Resource 2')
-    curve(B2 - (w[2,1]/w[2,2])*x, 0, xend, add= TRUE, col =2)     
-  })  
-}
-
-calcRstars = function(parms, B1, B2) { 
-  #### calculate the point at which two species Zero Net Growth Isoclines Cross
-  #### gives the equilibrium resource availability in competition
-  with(parms, { 
-    R1star = (B2 - B1)/(w[2,1]/w[2,2] - w[1,1]/w[1,2])
-    R2star = (B2 - (w[2,1]/w[2,2])*((B2 - B1)/(w[2,1]/w[2,2] - w[1,1]/w[1,2])))
-    
-    return(list(R1star, R2star))
-    
-  })
-}
-
-
-plotConsumption = function(parms, B1, B2, R1star, R2star, species2Color = 2 ){ 
-  ##### plot consumption vector on graph with resource one on x-axis 
-  ##### and resource two on the y-axis.  Intercept determined by 
-  ##### resource equilibrium. 
-  with(parms, { 
-    cv1 = q[1,2]/q[1,1]
-    cv2 = q[2,2]/q[2,1]
-    
-    points(R1star, R2star)      
-    
-    curve( R2star - (R1star*cv1) + cv1*x , add= TRUE , lty = 2)
-    curve( R2star - (R1star*cv2) + cv2*x, add = TRUE, lty = 2, col = species2Color)
-    
-  })
-  
-}
-
-
-calcLVparms = function(parms, B){ 
-  ##### Calculate Lotka-Volterra equivalent competition coefficients 
-  ##### based on substitutable resource model parameters 
-  with(parms, { 
-    
-    K = c(  (D*(S[2] + S[1]*w[1,1]/w[1,2] - B[1]))/(q[1,2] + w[1,1]*q[1,1]/w[1,2]), 
-            (D*(S[2] + S[1]*w[2,1]/w[2,2] - B[2]))/(q[2,2] + w[2,1]*q[2,1]/w[2,2])  )
-    
-    alphaT = (q[2,2] + q[2,1]*w[1,1]/w[1,2])/(q[1,2] + q[1,1]*w[1,1]/w[1,2])
-    betaT =  (q[1,2] + q[1,1]*w[2,1]/w[2,2])/(q[2,2] + q[2,1]*w[2,1]/w[2,2])
-    
-    alpha = matrix(c(NA), nrow = 2, ncol = 2, byrow = 2)
-    
-    alpha[1,1] = 1/K[1]
-    alpha[2,2] = 1/K[2]
-    alpha[1,2] = alpha[1,1]*alphaT
-    alpha[2,1] = alpha[2,2]*betaT
-    
-    LVP = list(K = K, alphaT = alphaT, betaT = betaT, alpha = alpha)
-    return(LVP)
-  })
-}
-
-calcDirSensitivity = function(parms){ 
-  #### Calculate direct sensitivity ot a change in supply of resource one
-  with(parms, {  
-    dirSensN1 = D*(w[1,1]/w[1,2])/(q[1,2] + (w[1,1]*q[1,1])/w[1,2])
-    dirSensN2 = D*(w[2,1]/w[2,2])/(q[2,2] + (w[2,1]*q[2,1])/w[2,2])
-    return(c(dirSensN1, dirSensN2))
-  })
-}
-
-calcNetSensitivity = function(dirN1, dirN2, lvp){
-  #### dirN1 and dirN2 give the direct sensitivity 
-  #### of N1 and N2 to change in S1 
-  #### calculated in 'calcDirSensitivity' function 
-  
-  with(lvp, { 
-    Net = ((1 - alphaT*betaT)^(-1))*(dirN1 - alphaT*dirN2)
-    return(Net)
-  }) 
-}
-
-calcNetSensitivity2 = function( parms) { 
-
-  with(parms, { 
-    Net = D/q[1,1]*( 1 / (1 - q[1,2]*q[2,1]/(q[1,1]*q[2,2]) )) 
-    return(Net)  
-  } ) 
-}
-
-calcIFX = function( dirN1, dirN2, Beta, rho){ 
-  #### Uses LV parameters to calculate indirect sensitivity to 
-  #### change in resource supply 
-  indSensN1 = (dirN1 - (1/Beta)*dirN2)*((rho^2)/(1 - rho^2))
-  return( calcIndSens = indSensN1 )  
-}
-
-calcIFX2 = function(dirN1, dirN2, parms, rho) { 
-  #### like calcIFX but does not use LV parameters
-  #### goes directly from mechanistic parameters 
-  #### to indirect effects strength 
-  with(parms, { 
-    C = ( q[2,2] + q[2,1]*w[2,1]/w[2,2]) / ( q[1,2] + q[1,1]*w[2,1]/w[2,2] )
-    IFX2 = (dirN1 - C*dirN2)*(rho^2/(1-rho^2))
-    return(IFX2)
-  })
-}
-
+source('resource_competition_functions.R')
 
 par(mfrow= c(1, 1) ) 
 
@@ -730,38 +553,6 @@ outputDF = data.frame(simNetFX= NA, simDirFX= NA, simIndFX = NA, calcNetSens = N
                       calcDirN1 = NA, calcDirN2 = NA, calcIndSens = NA, 
                       calcIndSens2 = NA, rho = NA, Beta = NA)
 
-simulatedEffects = function( parms ){ 
-  
-  NR = c(N = c(1, 1), R = c(4000,4000))   ### initial populations and resource levels
-  NRout = ode(y = NR, func= subMod, t = 1:2000, parms = parms, method = 'rk4' )
-  preEq = as.matrix(tail(NRout, 1))[,-1]
-  
-  newParms = parms
-  newParms$S = parms$S*c(1.01, 1)
-  NR2 = ode(y = preEq, func = subMod, t = 1:2000, parms = newParms, method = 'rk4')
-  NR3 = ode(y = preEq, func = submod_constant_N2, t = 1:2000, parms = newParms, method = 'rk4')
-  Eq2 = as.matrix(tail(NR2, 1))[, -1]
-  Eq3 = as.matrix(tail(NR3, 1))[, -1]
-  
-  netFX = (Eq2 - preEq)/(newParms$S[1] - parms$S[1])
-  dirFX = (Eq3 - preEq)/(newParms$S[1] - parms$S[1])
-  indFX = netFX[1] - dirFX[1]
-  
-  return(c(netFX[1], dirFX[1], indFX[1]))
-  
-}
-
-analyticalCalculations = function( parms ){ 
-  B = calcIntercepts(parms=parms)
-  LVP = calcLVparms(parms=parms, B=c(B[[1]], B[[2]]))
-  rho = calcRhoSub( parms= parms)
-  dirSens = calcDirSensitivity(parms=parms)
-  netSens = calcNetSensitivity(dirN1= dirSens[1], dirN2 = dirSens[2], lvp= LVP)
-  indSens = calcIFX(dirN1=dirSens[1], dirN2 = dirSens[2], Beta = LVP$betaT, rho=rho)  
-  indSens2 = calcIFX2(dirN1 = dirSens[1], dirN2= dirSens[2], parms = parms, rho = rho)
-  return(c(netSens, dirSens[1], dirSens[2], indSens, indSens2, rho, LVP$betaT))
-}
-
 outputDF[1, 1:3] = simulatedEffects(parms)
 outputDF[1, 4:10] = analyticalCalculations(parms) 
 
@@ -779,12 +570,16 @@ cbind( outputDF$simNetFX , outputDF$calcNetSens )
 cbind( outputDF$simDirFX, outputDF$calcDirN1)
 cbind( outputDF$simIndFX, outputDF$calcIndSens, outputDF$calcIndSens2)
 
+round( outputDF$simNetFX, 5 )  == round(  outputDF$calcNetSens , 5)
+round( outputDF$simDirFX, 5 )  == round(  outputDF$calcDirN1, 5 )
+round( outputDF$simIndFX, 5 )  == round(  outputDF$calcIndSens, 5 )
+
 
 #####
 ##### Generate figure 6 for main text of manuscript
 #####
 
-par(las=1, oma = c(1,1,1,1), mar = c(5,6,1,1))
+par( mfrow = c(1,1), las=1, oma = c(1,1,1,1), mar = c(5,6,1,1))
 yl = 'Indirect effect strength'
 yl2 = expression("Indirect effect" ~ "("*italic(frac(delta*'N'['F']^'*', delta*'S'[1])*")"))
 
