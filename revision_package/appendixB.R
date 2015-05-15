@@ -8,213 +8,11 @@ require(deSolve)
 ####### Section 1: Essential resource model analysis 
 ########################################################
 
-
-RRmod = function(t, NR, parms) {
-  
-  #### RRmod "Resource Ratio Model" 
-  #### Continuous two species resource model with essential resources
-  
-  with(as.list(c(NR, parms)), { 
-    dN1dt = N1*min((r[1]*R1/(R1 + k[1,1]) - m[1]), (r[1]*R2/(R2 + k[1,2]) - m[1])) ## sp. 1 growth
-    dN2dt = N2*min((r[2]*R1/(R1 + k[2,1]) - m[2]), (r[2]*R2/(R2 + k[2,2]) - m[2])) ## sp. 2 growth
-    dR1dt = a[1]*(S[1]-R1) - ((dN1dt + m[1]*N1)*Q[1,1] + (dN2dt + m[2]*N2)*Q[2,1]) ## res. 1 change
-    dR2dt = a[2]*(S[2]-R2) - ((dN1dt + m[1]*N1)*Q[1,2] + (dN2dt + m[2]*N2)*Q[2,2]) ## res. 2 change
-    list(c(dN1dt, dN2dt, dR1dt, dR2dt))
-  }) 
-}
-
-RRmod_constant_N2 = function(t, NR, parms, hold = 2) {
-  
-  #### RRmod "Resource Ratio Model" 
-  #### Continuous two species resource model with essential resources
-  #### This model finds equilibrium populatoin of focal species (N1) 
-  #### while holding population of competitor (N2) constant. 
-  
-  with(as.list(c(NR, parms)), { 
-    if (hold == 2){ 
-      dN1dt = N1*min((r[1]*R1/(R1 + k[1,1]) - m[1]), (r[1]*R2/(R2 + k[1,2]) - m[1])) ## sp. 1 growth
-      dN2dt = 0 # set to zero to hold N2 constant N2*min((r[1]*R1/(R1 + k[2,1]) - m[2]), (r[2]*R2/(R2 + k[2,2]) - m[2])) 
-    }
-    else if (hold ==1){ 
-      dN1dt = 0 # N1*min((r[1]*R1/(R1 + k[1,1]) - m[1]), (r[1]*R2/(R2 + k[1,2]) - m[1])) ## sp. 1 growth
-      dN2dt = N2*min((r[1]*R1/(R1 + k[2,1]) - m[2]), (r[2]*R2/(R2 + k[2,2]) - m[2])) ## sp. 2 growth
-    }
-    dR1dt = a[1]*(S[1]-R1) - ((dN1dt + m[1]*N1)*Q[1,1] + (dN2dt + m[2]*N2)*Q[2,1]) ## res. 1 change
-    dR2dt = a[2]*(S[2]-R2) - ((dN1dt + m[1]*N1)*Q[1,2] + (dN2dt + m[2]*N2)*Q[2,2]) ## res. 2 change
-    list(c(dN1dt, dN2dt, dR1dt, dR2dt))
-  }) 
-}
-
-get_Rstars = function(parms){
-  attach(parms)
-  
-  out = matrix(c(k[1,1]*m[1]/(r[1]-m[1]), k[1,2]*m[1]/(r[1]-m[1]),    #### R* for species one on R1 and R2
-                 k[2,1]*m[2]/(r[2]-m[2]), k[2,2]*m[2]/(r[2]-m[2])),   #### R* for species two on R1 and R2
-               nrow = 2, byrow = T) 
-  detach(parms)
-  return(out)
-}
-
-get_consumption = function(parms){ 
-  attach(parms)
-  out = c(C1 = Q[1,2]/Q[1,1], C2 = Q[2,2]/Q[2,1])      
-  detach(parms)
-  return(out)
-}
-
-getKs = function( parms ,  t = t) { 
-  initR1 = parms$S[1]
-  initR2 = parms$S[2]  
-  N2eq = ode(y = c(N1 = 0, N2 = 1, R1 = initR1, R2 = initR2), times = t, func = RRmod, parms = parms) ### calcs N1, N2, R1, R2
-  N1eq = ode(y = c(N1 = 1, N2 = 0, R1 = initR1, R2 = initR2), times = t, func = RRmod, parms = parms) ### calcs N1, N2, R1, R2
-  K1 = N1eq[nrow(N1eq), "N1"]
-  K2 = N2eq[nrow(N2eq), "N2"]
-  return(list(K1, K2))
-}
-
-get_lvParms = function(parms ){
-  Rstars = get_Rstars(parms)
-  alpha = matrix(NA, nrow = 2, ncol = 2)  
-  Q = parms$Q
-  
-  if (Rstars[1,1] < Rstars[1,2]) {
-  #### case where species one is limited by resource two
-    alpha = matrix(NA, nrow = 2, ncol = 2)  
-    Q = parms$Q
-    alphaT = Q[2,2]/Q[1,2]
-    betaT = Q[1,1]/Q[2,1]
-    K1 = getKs(parms, t = 1:1000)[[1]]
-    K2 = getKs(parms, t = 1:1000)[[2]]
-    alpha[1,1] = 1/K1
-    alpha[2,2] = 1/K2
-    alpha[1,2] = alphaT*alpha[1,1]
-    alpha[2,1] = betaT*alpha[2,2]  
-  }
-
-  else if (Rstars[1,1] > Rstars[1,2]) {
-    #### case where species one is limited by resource one
-    alpha = matrix(NA, nrow = 2, ncol = 2)  
-    Q = parms$Q
-    alphaT = Q[1,2]/Q[2,2]
-    betaT = Q[2,1]/Q[1,1]
-    K1 = getKs(parms, t = 1:1000)[[1]]
-    K2 = getKs(parms, t = 1:1000)[[2]]
-    alpha[1,1] = 1/K1
-    alpha[2,2] = 1/K2
-    alpha[1,2] = alphaT*alpha[1,1]
-    alpha[2,1] = betaT*alpha[2,2]  
-  }
-  
-  
-  return(list(alpha = alpha, K1 = K1, K2 = K2))
-  
-}
-  
-  
-findRho = function(alpha){
-  #### rho is the niche overlap measure from Chesson 2013
-  rho = sqrt((alpha[1,2]*alpha[2,1])/(alpha[1,1]*alpha[2,2]))
-  return(rho)  
-}
-
-plot_isocline = function(parms, RRout){ 
-  #### Make Tilman style plot of species growth isoclines in relation to resource availability 
-  #### for two essential resources and two competitors.  
-  Rstars = get_Rstars(parms = parms)
-  beta = get_consumption(parms = parms)
-  with(as.list(c(parms, RRout, Rstars, beta)), {
-    #plot(S[1]*2,S[2]*2,xlab="R1",ylab="R2",xlim=c(0,40),pch=16,ylim=c(0,40),type="n")
-
-    plot(S[1]*2,S[2]*2,xlab="R1",ylab="R2",xlim=c(0,max(S[1])*2.2),pch=16,ylim=c(0,max(S[2])*2.2),type="n")
-    
-    points(RRout[1,4],RRout[1,5],xlab="R1",ylab="R2",xlim=c(0,max(S[1])*2.2),ylim=c(0,max(S[2])*2.2),type="p")
-    lines(x=c(Rstars[1,1],Rstars[1,1],max(S[1])*2.2),y=c(max(S[2])*2.2,Rstars[1,2],Rstars[1,2]),lwd=2)
-    lines(x=c(Rstars[2,1],Rstars[2,1],max(S[1])*2.2),y=c(max(S[2])*2.2,Rstars[2,2],Rstars[2,2]),lwd=2,col="red")
-    
-    CEQ=c(max(Rstars[1,1],Rstars[2,1]),max(Rstars[1,2], Rstars[2,2]))  ## Coexistence Equilibrium
-    REQ=c(RRout[nrow(RRout), 4], RRout[nrow(RRout), 5])         ## Final Resource State (Resource Equilibrium)
-    
-    abline(CEQ[2] - C1*CEQ[1],C1,lty = "dashed")  ## species one consumption vector
-    abline(CEQ[2] - C2*CEQ[1],C2,lty = "dashed", col="red") ## species two consumption vector
-    
-    lines(RRout[,4],RRout[,5])
-    arrows(RRout[1, 4],RRout[1,5],RRout[3,4],RRout[3,5],length=0.05,angle=45,code=2)
-    points(REQ[1], REQ[2], pch = 17, col = "dark green") ## label final resource state
-    #text(REQ[1] + 2, REQ[2] - 2, cex = 0.5, "REQ", col = "dark green") ## label final resource state
-    #lines(lR2, c(parms$S[2],parms$S[2]))
-    #lines(c(parms$S[1],parms$S[1]), lR1)
-  })
-  legend("topright", 45, c("N1 ZNGI", "N2 ZNGI"), lty = 1, bty = "n", cex = 1.2, col = c(1,2))  
-}  
-
-
-plot_ifx_panel = function(RRout_net, RRout_direct, RRout_indirect, t){
-  
-  #### make three graphs representing how a change in resource supply affects the two species equilibrium
-  #### left graph shows overall effect
-  #### middle graph shows direct effect--i.e. effect of change when competitor is held constant
-  #### right graph shows indirect effect--i.e. net effect minus direct effect  
-  start = min(t)
-  p1 = max(t)
-  end = max(t)*2
-  
-  lines = c(1,1, 2)
-  clrs = c("black", "red", "red")
-  ylims = c(0, 1.1*(max(RRout_net[, 2], RRout_net[,3])))
-  matplot( RRout_net[, 1], RRout_net[,2:3], type = "l", xlab ="time", ylab = "Population", lty = lines, col = clrs, ylim = ylims, 
-           main = "Net effects") 
-  abline(v=p1, lty = 2)
-  
-  RRout_direct = cbind(RRout_direct, RRout_direct[ , 3])
-  RRout_direct[p1:end, 3] = NA #### don't graph second period of species 2 in direct effects graph
-  RRout_direct[start:p1, 4] = NA
-  
-  matplot( RRout_direct[, 1], RRout_direct[,2:4], type = "l", xlab ="time", ylab = "", lty = lines, col = clrs, ylim = ylims, 
-           main = "Direct effects") 
-  abline(v=p1, lty = 2)
-  matplot( RRout_indirect[, 1], RRout_indirect[,2:3], type = "l", xlab ="time", ylab = "", lty = lines, col = clrs, ylim = ylims, 
-           main = "Indirect effects") 
-  abline(v=p1, lty = 2)
-  legend("bottomright", c("N1", "N2"), lty = 1, bty = "n", col = clrs, cex = 1.2, seg.len = 1)
-}
-
-
-changeSupply = function( S1delta = 0, S2delta = 0, NR, parms, t = 1:500){
-  
-  parms2 = parms
-  parms2$S = parms2$S + c(S1delta, S2delta)
-  
-  out1 = ode(y = NR, times = t, func = RRmod, parms = parms) ### calcs N1, N2, R1, R2
-  eq1 = out1[max(t), c(2:5)]
-  out2 = ode(y = eq1, times = t, func = RRmod, parms = parms2)
-  out2[, 1] = seq(max(t)+1, max(t)*2) 
-  
-  outNet = rbind(out1[, 1:3], out2[, 1:3])
-  out3 = ode(y = eq1, times = t, func = RRmod_constant_N2, parms = parms2)
-  out3[, 1] = out2[, 1]
-  
-  outDirect = rbind(out1[, 1:3], out3[, 1:3])
-  out4 = out2[, 1:3]
-  out4[, 2] = out2[, 2] - out3[, 2]
-  
-  out4[, 2] = eq1[1] + out4[,2]
-  outIndirect = rbind(out1[, 1:3], out4[, 1:3])
-  
-  return(list(outNet = outNet, outDirect = outDirect, outIndirect = outIndirect))
-}
-
-
-getRho2 = function( parms, N1limitedbyR1 = TRUE){
-  if (N1limitedbyR1 ) { 
-    rho = with(parms, sqrt((Q[1,2]*Q[2,1])/(Q[1,1]*Q[2,2])))    
-  }
-  return(rho)
-}
-
-source('resource_competition_functions.R')
+source( 'resource_competition_functions.R')
 
 ###### Demonstrates Two species two essential resource competition model of coexistence
 NR = c(N = c(.01, .01), R = c(20,20))   ### initial populations and resource levels
+NRmono = c(N = c(0.01, 0), R = c(20, 20))
 
 #### set parameters
 parms = list(r  = c(1, 1),                                         ### growth rates
@@ -268,8 +66,6 @@ par(mfrow=c(1,1),pty="s",tcl=-0.2,mgp=c(2.2,0.5,0),mar=c(4,5,1,1), las = "1", ce
 plot_isocline(parms, RRout) #### Resource isocline plot
 text(35, 25, bquote( rho ~ '=' ~ .(rho) ) )
 
-
-
 #### 
 #### run the model with a change in resource supply and observe effects on N1* 
 #### 
@@ -279,10 +75,10 @@ S1delta = 1
 S2delta = 0
 
 out = changeSupply(S1delta, S2delta, NR, parms, t = 1:newT)
+
 par(mfrow=c(1,3),pty="s",tcl=-0.2,mgp=c(2.2,0.5,0),mar=c(3,5,2,1), 
     oma = c(3,1,3,1), las = "1", cex.lab = 1.2)
 plot_ifx_panel(out[[1]], out[[2]], out[[3]], t = newT)   ##### plot perturbation in S1
-
 
 #### resource 2 sensitivity
 S1delta2 = 0
@@ -294,6 +90,7 @@ plot_ifx_panel(out2[[1]], out2[[2]], out2[[3]], t = newT) ##### plot perturbatio
 #### Check whether the simulation matches algebra 
 #### for defining direct and indirect effects 
 t = 1:1000
+
 NR1 = ode(y = NR, times = t, func = RRmod, parms = parms) ### calcs N1, N2, R1, R2
 preEq = as.numeric(tail(NR1[, 2:5], 1)) #### first equilibrium 
 names(preEq) <- names(NR)
@@ -315,7 +112,9 @@ indFX
 
 dirFX = Eq2direct[1] - preEq[1] #### direct effects
 dirFX
+
 simDirSens = dirFX/(deltaS1) #### direct effects sensitivity
+simDirSens
 
 simIndSens = indFX/(deltaS1) #### Indirect effects sensitivity from simulation
 simIndSens
@@ -328,7 +127,6 @@ indFXN1_calc = with(parms, ((a[1]/(m[1]*Q[1,1]))*(rho^2/(1-rho^2))))
 
 cbind( dirFXN1_calc, simDirSens)  #### check that calculated and simulated values match
 cbind( indFXN1_calc, simIndSens ) ##### check that calculated and simulated values match
-
 
 ####### Section for calculating effects of a change in the supply of the non-limiting resource 
 t = 1:1000
@@ -457,6 +255,8 @@ points(parms$S[1], parms$S[2])
 
 ##### Run model 
 NR = c(N = c(1, 1), R = c(4000,4000))   ### initial populations and resource levels
+NRmono = c( N = c(1, 0), R = c(4000, 4000))
+
 NRout = ode(y = NR, func= subMod, t = 1:2000, parms = parms, method = 'rk4' )
 preEq = as.matrix(tail(NRout, 1))[,-1]
 
@@ -573,7 +373,6 @@ cbind( outputDF$simIndFX, outputDF$calcIndSens, outputDF$calcIndSens2)
 round( outputDF$simNetFX, 5 )  == round(  outputDF$calcNetSens , 5)
 round( outputDF$simDirFX, 5 )  == round(  outputDF$calcDirN1, 5 )
 round( outputDF$simIndFX, 5 )  == round(  outputDF$calcIndSens, 5 )
-
 
 #####
 ##### Generate figure 6 for main text of manuscript

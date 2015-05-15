@@ -209,6 +209,22 @@ getRho2 = function( parms, N1limitedbyR1 = TRUE){
   return(rho)
 }
 
+calcIFX1 = function( rho, dfxN1 = 1) { 
+  ##### Draw indirect effect strength as a function of rho
+  ifx1 = dfxN1*(rho^2/ ( 1 - rho^2))
+  return(ifx1)  
+}
+
+calcFX2 = function( rho, focalSensitivity){
+  #### Draw second type of indirect effects as function of rho and 
+  #### focal species sensitivity 
+  ifxtotal = - focalSensitivity*(rho^2/(1 - rho^2))
+  return(ifxtotal)
+}
+
+
+
+
 ########################################################
 
 ########################################################
